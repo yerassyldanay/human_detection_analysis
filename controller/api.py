@@ -1,12 +1,15 @@
 import time
 import json
 from flask import Flask, Response, request
+from view.black_box import BlackBox
 
 from utils import constants as C
 from utils.app_log import get_logger
 
 application = Flask(__name__)
 logger = get_logger("application")
+
+blackbox = BlackBox()
 
 def dump_json(passed_json):
     return json.dumps(passed_json, indent=4, sort_keys=True, default=str)
@@ -34,12 +37,9 @@ def run_the_human_detector():
             "task_id": task_id,
         }
 
-        """
-            run here your method
-            response_in_json = your_method(image)
-        """
+        response_in_json = blackbox.receiveFrame(image, points)
 
-        response_json.update({})
+        response_json.update(response_in_json)
 
         return Response(dump_json(response_json), status=C.STATUS_OK, mimetype='application/json')
 
