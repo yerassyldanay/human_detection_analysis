@@ -26,10 +26,10 @@ class DetectorAPI:
 
         # Definite input and output Tensors for detection_graph
         self.image_tensor = self.detection_graph.get_tensor_by_name('image_tensor:0')
-        # Each box represents a part of the image where a particular object was detected.
+        # Each box represents a part of the images where a particular object was detected.
         self.detection_boxes = self.detection_graph.get_tensor_by_name('detection_boxes:0')
         # Each score represent how level of confidence for each of the objects.
-        # Score is shown on the result image, together with the class label.
+        # Score is shown on the result images, together with the class label.
         self.detection_scores = self.detection_graph.get_tensor_by_name('detection_scores:0')
         self.detection_classes = self.detection_graph.get_tensor_by_name('detection_classes:0')
         self.num_detections = self.detection_graph.get_tensor_by_name('num_detections:0')

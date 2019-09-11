@@ -17,16 +17,22 @@ def dump_json(passed_json):
 def return_failed_response():
     return Response(dump_json({}), status=C.STATUS_ERROR, mimetype='application/json')
 
+
 @application.route("/", methods = ["GET", "POST"])
 def check_everthing_is_ok():
     return Response(dump_json({"hello": "At this moment, everthing is working fine"}),
+                    status=C.STATUS_OK, mimetype='application/json')
+
+@application.route("/api/human_detection", methods = ["GET"])
+def check_everthing_is_ok_2():
+    return Response(dump_json({"error": "Make POST requests"}),
                     status=C.STATUS_OK, mimetype='application/json')
 
 @application.route("/api/human_detection", methods = ["POST"])
 def run_the_human_detector():
     try:
         camera_id = request.form.get("camera_id")
-        image = request.form.get("image")
+        image = request.form.get("images")
         task_id = request.form.get("task_id")
         points = request.form.get("points")
 
@@ -37,8 +43,9 @@ def run_the_human_detector():
             "task_id": task_id,
         }
 
-        response_in_json = blackbox.receiveFrame(image, points)
+        #print(response_json)
 
+        response_in_json = blackbox.receiveFrame(image, points)
         response_json.update(response_in_json)
 
         return Response(dump_json(response_json), status=C.STATUS_OK, mimetype='application/json')
