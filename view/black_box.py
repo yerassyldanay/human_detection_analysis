@@ -1,13 +1,13 @@
-from HumanDetection import DetectorAPI
+from view.human_detection import DetectorAPI
 import time
 import json
 import cv2
 from shapely.geometry import Polygon, LineString
 
-from utils import constants as C
-from utils.app_log import get_logger
+# from utils import constants as C
+# from utils.app_log import get_logger
 
-logger = get_logger("BlackBox")
+# logger = get_logger("BlackBox")
 
 def check_intersections(X1, X2, mainLine):
     (x1, y1) = X1
@@ -30,47 +30,50 @@ class BlackBox:
         
     # humans(id, x_min, x_max, time then detected, alerted, countdown for save in memory)
     def analyseFrame(self, frame, mainLine):
-        try:
-            mainLine = ((mainLine[0], mainLine[1]), (mainLine[2], mainLine[3]))
-            curr_time = time.time()
-            is_alert = False
-            data = {}
-            humans = []
-            
-            boxes, scores, classes, num = self.odapi.processFrame(frame)
+        # try:
 
-            for i in range(len(boxes)):
-                box = boxes[i]
+        # cv2.imwrite("/home/user/Desktop/human_detection_analysis/test/out.jpg", frame)
 
-                if classes[i] == 1 and scores[i] > self.human_threshold:
-                    x_min = (box[1], box[0])
-                    x_max = (box[3], box[2])
-                    
-                    if check_intersections(x_min, x_max, mainLine):
-                        is_alert = True
-                    
-                    human = {}
-                    human['id'] = i
-                    human['x1'], human['y1'] = x_min
-                    human['x2'], human['y2'] = x_max
-                    human['class'] = classes[i]
-                    humans.append(human)
+        mainLine = ((mainLine[0], mainLine[1]), (mainLine[2], mainLine[3]))
+        curr_time = time.time()
+        is_alert = False
+        humans = []
+        data = {}
+        
+        boxes, scores, classes, num = self.odapi.processFrame(frame)
 
-                    # need to write saving to REDIS
-                    # humans.append((i, x_min, x_max, classes[i], curr_time, False, self.previous_error))
+        for i in range(len(boxes)):
+            box = boxes[i]
 
-            data['is_alert'] = is_alert
-            data['boxes'] = humans
-            json_out = json.dumps(data)
+            if classes[i] == 1 and scores[i] > self.human_threshold:
+                x_min = (box[1], box[0])
+                x_max = (box[3], box[2])
+                
+                if check_intersections(x_min, x_max, mainLine):
+                    is_alert = True
+                
+                human = {}
+                human['id'] = i
+                human['x1'], human['y1'] = x_min
+                human['x2'], human['y2'] = x_max
+                human['class'] = classes[i]
+                humans.append(human)
 
-            return json_out
+                # need to write saving to REDIS
+                # humans.append((i, x_min, x_max, classes[i], curr_time, False, self.previous_error))
 
-        except Exception as ex:
-            logger.error(f"[APP] Error has occured. Exception: {ex}")
+        data['is_alert'] = is_alert
+        data['boxes'] = humans
+        #json_out = json.dumps(data)
+
+        return data
+
+        # except Exception as ex:
+        #     logger.error(f"[APP] Error has occured. Exception: {ex}")
             # return return_failed_response()
 
     def receiveFrame(self, frame, mainLine):
-        logger.info(f"[APP] Received: frame with main line: {mainLine}")
+        # logger.info(f"[APP] Received: frame with main line: {mainLine}")
         return self.analyseFrame(frame, mainLine)
 
 if __name__ == "__main__":
