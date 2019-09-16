@@ -2,4 +2,4 @@ STATUS_OK = "200"
 STATUS_ERROR = "500"
 
 HOST = "0.0.0.0"
-PORT = "7000"
+PORT = "7001"

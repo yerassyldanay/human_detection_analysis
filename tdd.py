@@ -9,13 +9,9 @@ from utils import constants as C
 def test_1():
     image = cv2.imread("/home/user/Desktop/human_detection_analysis/test/images/nothing.jpg")
     mainLine = (30, 327, 940, 344)
-    # image = cv2.imencode('.jpg', image)[1].tostring()
     image_shape = image.shape
     print(image.shape)
     image = base64.b64encode(image)
-    # d = image.flatten ()
-    #print(image)
-    # image = d.tostring ()
     print(type(image))
 
     data = {
@@ -30,7 +26,7 @@ def test_1():
         
         "height": image_shape[0],
         "width": image_shape[1],
-        "layers": image_shape[2],
+        "layers": image_shape[2]
     }
 
     # print(data)

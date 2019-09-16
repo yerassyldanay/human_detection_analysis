@@ -53,7 +53,7 @@ def run_the_human_detector():
 
     image = numpy.frombuffer(base64.b64decode(image), dtype=numpy.uint8)
     image = image.reshape(image_shape)
-    
+
     print(f"[APP] Received: camera_id: {camera_id} && task_id: {task_id}")
 
     response_json = {
