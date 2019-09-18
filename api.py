@@ -62,7 +62,7 @@ def run_the_human_detector():
     }
 
     #print(response_json)
-    response_in_json = blackbox.receiveFrame(image, points)
+    response_in_json = blackbox.receiveFrame(camera_id, image, points)
     response_json.update(response_in_json)
 
     return Response(dump_json(response_json), status=C.STATUS_OK, mimetype='application/json')

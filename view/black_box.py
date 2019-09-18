@@ -1,30 +1,21 @@
-from human_detection import DetectorAPI
+from view.human_detection import DetectorAPI
+from shapely.geometry import Polygon, LineString
 import time
 import json
-import cv2
-from shapely.geometry import Polygon, LineString
 import redis
 
-# from utils import constants as C
-# from utils.app_log import get_logger
-
-# logger = get_logger("BlackBox")
-
-def line_intersection(X1, X2, mainLine):
-    (x1, y1) = X1
-    (x2, y2) = X2
+def line_intersection(box, main_line):
+    (x1, y1, x2, y2) = box
 
     polygon = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
-    mainLine = LineString(mainLine)
-    return mainLine.intersects(polygon)
-    
-def box_intersection(X1, X2, X3, X4):
-    (x1, y1) = X1
-    (x2, y2) = X2
+    main_line = LineString(main_line)
+    return main_line.intersects(polygon)
+
+def box_intersection(box1, box2):
+    (x1, y1, x2, y2) = box1
     polygon1 = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
-    
-    (x3, y3) = X3
-    (x4, y4) = X4
+
+    (x3, y3, x4, y4) = box2
     polygon2 = Polygon([(x3, y3), (x4, y3), (x4, y3), (x3, y4)])
 
     return polygon2.intersection(polygon1).area
@@ -32,142 +23,137 @@ def box_intersection(X1, X2, X3, X4):
 class BlackBox:
 
     def __init__(self):
-        model_path = './model/frozen_inference_graph.pb'
+        model_path = './view/model/frozen_inference_graph.pb'
         self.odapi = DetectorAPI(path_to_ckpt=model_path)
         self.redis_cli = redis.StrictRedis(host='localhost', port=6379, db=0)
-        self.human_threshold = 0.9
-        self.previous_error = 10
+        self.object_threshold = 0.9
+        self.object_classes = [1]
+        self.previous_error = 5
         self.alert_delay = 5.0
         self.last_time_sent = 0
 
+    # check frame at faster
     def getData(self, frame):
         boxes = []
         scores = []
         classes = []
         raw_boxes, raw_scores, raw_classes, num = self.odapi.processFrame(frame)
 
+        # choice for boxes with parameters(class, threshold)
         for i in range(len(raw_boxes)):
-            if raw_classes[i] == 1 and raw_scores[i] > self.human_threshold:
+            if raw_classes[i] in self.object_classes and raw_scores[i] > self.object_threshold:
                 boxes.append(raw_boxes[i])
                 scores.append(raw_scores[i])
                 classes.append(raw_classes[i])
 
-        return boxes, scores, classes, len(boxes) 
+        return boxes, scores, classes, len(boxes)
 
-        
-    # humans(id, x_min, x_max, time then detected, alerted, countdown for save in memory)
-    def analyseFrame(self, frame, mainLine, humans):        
+    # line-crossing and object tracking
+    def analyseFrame(self, frame, main_line, objects):        
         curr_time = time.time()
         is_alert = False
-        top_num = 0
-        found_humans = []
-        
+        last_id = -1
+        found_objects = []
+
         boxes, scores, classes, box_count = self.getData(frame)
         used = [0] * box_count
-        
-        for human in humans:
-            maxx = (0, 0, 0, -1)
 
+        # check for intersections of new boxes with ghosts from previous checks
+        for obj in objects:
+            maxx = (0, -1)
+
+            # find max intersection
             for i in range(box_count):
-                if used[i] == 0:
+                if used[i] == 0 and obj['class'] == classes[i]:
                     box = boxes[i]
+                    boundbox = [box[1], box[0], box[3], box[2]]
 
-                    x_min = (box[1], box[0])
-                    x_max = (box[3], box[2])
-                    area = box_intersection(human[1], human[2], x_min, x_max)
+                    area = box_intersection(obj['box'], boundbox)
                     if area > maxx[0]:
-                        maxx = area, x_min, x_max, i
-                    
-            if maxx[3] >= 0:
-                found_humans.append((human[0], maxx[1], maxx[2], human[3], human[4], self.previous_error))
-                used[maxx[3]] = 1
-                
-                top_num = max(top_num, human[0])
+                        maxx = area, i
 
-            else:
-                if human[5] > 0:
-                    found_humans.append((human[0], human[1], human[2], human[3], human[4], human[5] - 1))
+            # ghost beloved to object
+            if maxx[1] >= 0:
+                box = boxes[maxx[1]]
+                boundbox = [box[1], box[0], box[3], box[2]]
+                ghost = obj
+                ghost['box'] = boundbox
+                ghost['frames_to_live'] = self.previous_error
+                found_objects.append(ghost)
 
-        for i in range(box_count):
-            # Class 1 represents human
-            box = boxes[i]
+                used[maxx[1]] = 1
+                last_id = max(last_id, obj['id'])
 
-            if used[i] == 0:
-                x_min = (box[1], box[0])
-                x_max = (box[3], box[2])
-                found_humans.append((top_num, x_min, x_max, curr_time, False, self.previous_error))
-                top_num += 1
-                print("New Human!")
-
-        humans = []
-        for found_human in found_humans:
-            if found_human[5] == self.previous_error:
-                if line_intersection(found_human[1], found_human[2], mainLine):
+                if not ghost['is_alerted'] and line_intersection(ghost['box'], main_line):
                     is_alert = True
-                
-                human = {}
-                human['id'] = found_human[0]
-                human['x1'], human['y1'] = found_human[1]
-                human['x2'], human['y2'] = found_human[2]
-                human['class'] = classes[i]
-                humans.append(human)
 
-        # print(found_humans)
-        # print(human)
+            # save box as ghost
+            else:
+                if obj['frames_to_live'] > 0:
+                    ghost = obj
+                    ghost['frames_to_live'] -= 1
+                    found_objects.append(ghost)
 
-        return is_alert, humans, found_humans
+        # check if there is new object found in frame
+        for i in range(box_count):
+            if used[i] == 0:
+                last_id += 1
+                box = boxes[i]
+                boundbox = [box[1], box[0], box[3], box[2]]
 
-    def receiveFrame(self, cam_id, frame, mainLine):
-        mainLine = ((mainLine[0], mainLine[1]), (mainLine[2], mainLine[3]))
-        humans = []
+                obj = {}
+                obj['id'] = last_id
+                obj['box'] = boundbox
+                obj['class'] = classes[i]
+                obj['score'] = scores[i]
+                obj['first_time'] = curr_time
+                obj['is_alerted'] = False
+                obj['frames_to_live'] = self.previous_error
+                found_objects.append(obj)
 
-        old_humans = self.redis_cli.get(cam_id)
-        if old_humans:
-            humans = json.loads(old_humans.decode('utf-8'))
-        # print(humans)
+                if line_intersection(obj['box'], main_line):
+                    is_alert = True
+
+        # if on this frame was alert, all objects (without ghosts) are alerted
+        if is_alert:
+            for i in range(len(found_objects)):
+                if found_objects[i]['frames_to_live'] == self.previous_error:
+                    found_objects[i]['is_alerted'] = is_alert
+
+        return is_alert, found_objects
+
+    def receiveFrame(self, camera_id, frame, main_line):
+        main_line = ((main_line[0], main_line[1]), (main_line[2], main_line[3]))
         
-        is_alert, humans, all_h = self.analyseFrame(frame, mainLine, humans)
-
-        json_out = json.dumps(all_h)
-        self.redis_cli.set(cam_id, json_out)
-
-        data = {}
-        data['is_alert'] = is_alert
-        data['boxes'] = humans
-
-        return data
-
-if __name__ == "__main__":
-    bb = BlackBox()
-
-    with open('config.json') as f:
-        config = json.load(f)
-    colors = config["color_sources"]
-
-    # img = cv2.imread("/home/user/Desktop/human_detection_analysis/test/images/1.jpg")
-    # mainLine = (30, 327, 940, 344)
-
-    # response_in_json = bb.receiveFrame(1, img, mainLine)
-    # print(response_in_json)
-
-    cap = cv2.VideoCapture('/home/user/Documents/iGuard/datasets/videos/output1565692867.avi')
-    mainLine = (30, 653, 1879, 687)
-    frame_num = 0
-    while True:
+        # get ghosts from redis
+        objects =  self.redis_cli.get(camera_id)
+        if objects:
+            objects = json.loads(objects.decode('utf-8'))
+        else:
+            objects = []
         
-        r, img = cap.read()
+        # analyse
+        is_alert, found_objects = self.analyseFrame(frame, main_line, objects)
 
-        frame_num += 1
-        if(frame_num % 10 != 0) or frame_num < 1:
-            continue
+        # save objects as ghosts to redis
+        self.redis_cli.set(camera_id, json.dumps(found_objects))
 
-        response_in_json = bb.receiveFrame(1, img, mainLine)
+        # format bounding boxes only for objects without ghosts
+        objects = []
+        for found_object in found_objects:
+            if found_object['frames_to_live'] == self.previous_error:
+                obj = {}
+                obj['id'] = found_object['id']
+                obj['x1'] = found_object['box'][0]
+                obj['y1'] = found_object['box'][1]
+                obj['x2'] = found_object['box'][2]
+                obj['y2'] = found_object['box'][3]
+                obj['class'] = found_object['class']
+                objects.append(obj)
 
-        # Visualization of the results of a detection.
+        # create json for request result
+        json_out = {}
+        json_out['is_alert'] = is_alert
+        json_out['objects'] = objects
 
-        for box in response_in_json['boxes']:
-            cv2.rectangle(img,(box['x1'],box['y1']), (box['x2'],box['y2']), colors[box['id'] % len(colors)],2)
-            
-        img = cv2.resize(img, (1280, 720))
-        cv2.imshow("preview", img)
-        key = cv2.waitKey(1)
+        return json_out
