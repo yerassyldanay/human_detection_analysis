@@ -18,9 +18,8 @@ blackbox = BlackBox()
 def dump_json(passed_json):
     return json.dumps(passed_json, indent=4, sort_keys=True, default=str)
 
-def return_failed_response():
-    return Response(dump_json({}), status=C.STATUS_ERROR, mimetype='application/json')
-
+def return_failed_response(ex):
+    return Response(dump_json({"error": ex}), status=C.STATUS_ERROR, mimetype='application/json')
 
 @application.route("/", methods = ["GET", "POST"])
 def check_everthing_is_ok():
@@ -34,43 +33,42 @@ def check_everthing_is_ok_2():
 
 @application.route("/api/human_detection", methods = ["POST"])
 def run_the_human_detector():
-    #try:
-    camera_id = request.form.get("camera_id")
-    image = request.form.get("image")
-    task_id = request.form.get("task_id")
+    try:
+        data = json.loads(request.data)
+        camera_id = data.get("Camera_id")
+        task_id = data.get("Task_id")
 
-    x1 = int(request.form.get("x1"))
-    x2 = int(request.form.get("x2"))
-    y1 = int(request.form.get("y1"))
-    y2 = int(request.form.get("y2"))
+        frame = data.get("Frame")
+        points = data.get("Points")
+        frame_shape = data.get("Frame_shape")
 
-    height = int(request.form.get("height"))
-    width = int(request.form.get("width"))
-    layers = int(request.form.get("layers"))
+        assert type(camera_id) == str or type(camera_id) == int, 'Type of variable `camera_id` not valid'
+        assert type(task_id) == str or type(task_id) == int, 'Type of variable `task_id` not valid'
+        assert type(frame) == str, 'Type of variable `frame` not valid'
+        assert type(points) == list and len(points) == 4, 'Variable `points` not valid'
+        assert type(frame_shape) == list and len(frame_shape) == 3, 'Variable `frame_shape` not valid'
 
-    points = (x1, y1, x2, y2)
-    image_shape = (height, width, layers)
+        print(f"[APP] Received: camera_id: {camera_id} && task_id: {task_id}")
 
-    image = numpy.frombuffer(base64.b64decode(image), dtype=numpy.uint8)
-    image = image.reshape(image_shape)
+        frame = numpy.frombuffer(base64.b64decode(frame), dtype=numpy.uint8)
+        frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+        frame = frame.reshape(frame_shape)
 
-    print(f"[APP] Received: camera_id: {camera_id} && task_id: {task_id}")
+        response_json = {
+            "camera_id": camera_id,
+            "task_id": task_id,
+            "is_alert": False,
+            "objects": []
+        }
 
-    response_json = {
-        "camera_id": camera_id,
-        "task_id": task_id,
-    }
+        response_in_json = blackbox.receiveFrame(camera_id, frame, points)
+        response_json.update(response_in_json)
 
-    #print(response_json)
-    response_in_json = blackbox.receiveFrame(camera_id, image, points)
-    response_json.update(response_in_json)
+        return Response(dump_json(response_json), status=C.STATUS_OK, mimetype='application/json')
 
-    return Response(dump_json(response_json), status=C.STATUS_OK, mimetype='application/json')
-
-    #except Exception as ex:
-    #    logger.error(f"[APP] Error has occured. Exception: {ex}")
-    #    return return_failed_response()
-
+    except Exception as ex:
+       logger.error(f"[APP] Error has occured. Exception: {ex}")
+       return return_failed_response(ex)
 
 if __name__ == "__main__":
-    application.run(host="0.0.0.0", port=7000, debug=True)
+    application.run(host=C.HOST, port=C.PORT, debug=True)

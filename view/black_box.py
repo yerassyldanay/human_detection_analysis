@@ -1,5 +1,6 @@
 from view.human_detection import DetectorAPI
 from shapely.geometry import Polygon, LineString
+from utils import constants as C
 import time
 import json
 import redis
@@ -9,6 +10,7 @@ def line_intersection(box, main_line):
 
     polygon = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
     main_line = LineString(main_line)
+    
     return main_line.intersects(polygon)
 
 def box_intersection(box1, box2):
@@ -23,30 +25,48 @@ def box_intersection(box1, box2):
 class BlackBox:
 
     def __init__(self):
-        model_path = './view/model/frozen_inference_graph.pb'
-        self.odapi = DetectorAPI(path_to_ckpt=model_path)
-        self.redis_cli = redis.StrictRedis(host='localhost', port=6379, db=0)
-        self.object_threshold = 0.9
-        self.object_classes = [1]
-        self.previous_error = 5
-        self.alert_delay = 5.0
-        self.last_time_sent = 0
+        self.odapi = DetectorAPI(path_to_ckpt = C.MODEL_PATH)
+        self.redis_cli = redis.StrictRedis(host = C.REDIS_HOST, port = C.REDIS_PORT, db = C.REDIS_DB)
+        self.object_threshold = C.OBJECT_THRESHOLD
+        self.object_classes = C.OBJECT_CLASSES
+        self.frames_to_live = C.FRAMES_TO_LIVE
+        self.alert_delay = C.ALERT_DELAY
 
-    # check frame at faster
-    def getData(self, frame):
-        boxes = []
-        scores = []
-        classes = []
-        raw_boxes, raw_scores, raw_classes, num = self.odapi.processFrame(frame)
+    def receiveFrame(self, camera_id, frame, main_line):
+        main_line = ((main_line[0], main_line[1]), (main_line[2], main_line[3]))
+        
+        # get ghosts from redis
+        objects =  self.redis_cli.get(camera_id)
+        if objects:
+            objects = json.loads(objects.decode('utf-8'))
+        else:
+            objects = []
+        
+        # analyse
+        is_alert, found_objects = self.analyseFrame(frame, main_line, objects)
 
-        # choice for boxes with parameters(class, threshold)
-        for i in range(len(raw_boxes)):
-            if raw_classes[i] in self.object_classes and raw_scores[i] > self.object_threshold:
-                boxes.append(raw_boxes[i])
-                scores.append(raw_scores[i])
-                classes.append(raw_classes[i])
+        # save objects as ghosts to redis
+        self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
 
-        return boxes, scores, classes, len(boxes)
+        # format bounding boxes only for objects without ghosts
+        objects = []
+        for found_object in found_objects:
+            if found_object['frames_to_live'] == self.frames_to_live:
+                obj = {}
+                obj['id'] = found_object['id']
+                obj['x1'] = found_object['box'][0]
+                obj['y1'] = found_object['box'][1]
+                obj['x2'] = found_object['box'][2]
+                obj['y2'] = found_object['box'][3]
+                obj['class'] = found_object['class']
+                objects.append(obj)
+
+        # create json for request result
+        json_out = {}
+        json_out['is_alert'] = is_alert
+        json_out['objects'] = objects
+
+        return json_out
 
     # line-crossing and object tracking
     def analyseFrame(self, frame, main_line, objects):        
@@ -78,7 +98,7 @@ class BlackBox:
                 boundbox = [box[1], box[0], box[3], box[2]]
                 ghost = obj
                 ghost['box'] = boundbox
-                ghost['frames_to_live'] = self.previous_error
+                ghost['frames_to_live'] = self.frames_to_live
                 found_objects.append(ghost)
 
                 used[maxx[1]] = 1
@@ -108,7 +128,7 @@ class BlackBox:
                 obj['score'] = scores[i]
                 obj['first_time'] = curr_time
                 obj['is_alerted'] = False
-                obj['frames_to_live'] = self.previous_error
+                obj['frames_to_live'] = self.frames_to_live
                 found_objects.append(obj)
 
                 if line_intersection(obj['box'], main_line):
@@ -117,43 +137,23 @@ class BlackBox:
         # if on this frame was alert, all objects (without ghosts) are alerted
         if is_alert:
             for i in range(len(found_objects)):
-                if found_objects[i]['frames_to_live'] == self.previous_error:
+                if found_objects[i]['frames_to_live'] == self.frames_to_live:
                     found_objects[i]['is_alerted'] = is_alert
 
         return is_alert, found_objects
 
-    def receiveFrame(self, camera_id, frame, main_line):
-        main_line = ((main_line[0], main_line[1]), (main_line[2], main_line[3]))
-        
-        # get ghosts from redis
-        objects =  self.redis_cli.get(camera_id)
-        if objects:
-            objects = json.loads(objects.decode('utf-8'))
-        else:
-            objects = []
-        
-        # analyse
-        is_alert, found_objects = self.analyseFrame(frame, main_line, objects)
+    # check frame at faster
+    def getData(self, frame):
+        boxes = []
+        scores = []
+        classes = []
+        raw_boxes, raw_scores, raw_classes, num = self.odapi.processFrame(frame)
 
-        # save objects as ghosts to redis
-        self.redis_cli.set(camera_id, json.dumps(found_objects))
+        # choice for boxes with parameters(class, threshold)
+        for i in range(len(raw_boxes)):
+            if raw_classes[i] in self.object_classes and raw_scores[i] > self.object_threshold:
+                boxes.append(raw_boxes[i])
+                scores.append(raw_scores[i])
+                classes.append(raw_classes[i])
 
-        # format bounding boxes only for objects without ghosts
-        objects = []
-        for found_object in found_objects:
-            if found_object['frames_to_live'] == self.previous_error:
-                obj = {}
-                obj['id'] = found_object['id']
-                obj['x1'] = found_object['box'][0]
-                obj['y1'] = found_object['box'][1]
-                obj['x2'] = found_object['box'][2]
-                obj['y2'] = found_object['box'][3]
-                obj['class'] = found_object['class']
-                objects.append(obj)
-
-        # create json for request result
-        json_out = {}
-        json_out['is_alert'] = is_alert
-        json_out['objects'] = objects
-
-        return json_out
+        return boxes, scores, classes, len(boxes)
