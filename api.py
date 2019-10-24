@@ -42,11 +42,11 @@ def run_the_human_detector():
         points = data.get("Points")
         frame_shape = data.get("Frame_shape")
 
-        assert type(camera_id) == str or type(camera_id) == int, 'Type of variable `camera_id` not valid'
-        assert type(task_id) == str or type(task_id) == int, 'Type of variable `task_id` not valid'
-        assert type(frame) == str, 'Type of variable `frame` not valid'
-        assert type(points) == list and len(points) == 4, 'Variable `points` not valid'
-        assert type(frame_shape) == list and len(frame_shape) == 3, 'Variable `frame_shape` not valid'
+        assert type(camera_id) == str, 'Type of variable `camera_id` not valid. Must be string.'
+        assert type(task_id) == str, 'Type of variable `task_id` not valid. Must be string.'
+        assert type(frame) == str, 'Type of variable `frame` not valid. Must be string.'
+        assert type(points) == list and len(points) == 4, 'Variable `points` not valid. Must be list with 4 elem.'
+        assert type(frame_shape) == list and len(frame_shape) == 3, 'Variable `frame_shape` not valid. Must be list with 3 elem.'
 
         print(f"[APP] Received: camera_id: {camera_id} && task_id: {task_id}")
 
@@ -55,10 +55,10 @@ def run_the_human_detector():
         frame = frame.reshape(frame_shape)
 
         response_json = {
-            "camera_id": camera_id,
-            "task_id": task_id,
-            "is_alert": False,
-            "objects": []
+            "Camera_id": camera_id,
+            "Task_id": task_id,
+            "Is_alert": False,
+            "Objects": []
         }
 
         response_in_json = blackbox.receiveFrame(camera_id, frame, points)

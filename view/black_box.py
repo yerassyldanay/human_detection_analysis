@@ -53,18 +53,18 @@ class BlackBox:
         for found_object in found_objects:
             if found_object['frames_to_live'] == self.frames_to_live:
                 obj = {}
-                obj['id'] = found_object['id']
-                obj['x1'] = found_object['box'][0]
-                obj['y1'] = found_object['box'][1]
-                obj['x2'] = found_object['box'][2]
-                obj['y2'] = found_object['box'][3]
-                obj['class'] = found_object['class']
+                obj['Id'] = found_object['id']
+                obj['X1'] = found_object['box'][0]
+                obj['Y1'] = found_object['box'][1]
+                obj['X2'] = found_object['box'][2]
+                obj['Y2'] = found_object['box'][3]
+                obj['Class'] = found_object['class']
                 objects.append(obj)
 
         # create json for request result
         json_out = {}
-        json_out['is_alert'] = is_alert
-        json_out['objects'] = objects
+        json_out['Is_alert'] = is_alert
+        json_out['Objects'] = objects
 
         return json_out
 

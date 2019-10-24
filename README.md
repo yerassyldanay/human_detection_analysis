@@ -5,21 +5,21 @@
 ##### Input:
 ```json
 {
-      "camera_id": "<provide_camera_id>: string",
-      "task_id": "<provide_task_id>: string",
-      "image": "<provide_matrix>: ndarray",
-      "points": "<provide_points_of_a_line>: list"
+      "Camera_id": "<provide_camera_id>: string",
+      "Task_id": "<provide_task_id>: string",
+      "Frame": "<provide_base64>: string",
+      "Points": "<provide_points_of_a_line>: list",
+      "Frame_shape": "<provide_shapes_of_a_frame>: list"
 }
 ```
 
 ##### Output:
 ```json
  {
-      "camera_id": "<provide_camera_id>",
-      "task_id": "<provide_task_id>",
-      "boxes_list": "<provide_boxes_list>",
-      "scores": "<provide_scores>",
-      "classes": "<provide_classes>"
+      "Camera_id": "<provide_camera_id>: string",
+      "Task_id": "<provide_task_id>: string",
+      "Is_alert": "<provide_alert_state>: boolean",
+      "Objects": "<provide_objects>: list of list"
  }
 ```
 
@@ -28,16 +28,29 @@
 
 ##### Input:
 ```Blackbox.receiveFrame(
-      camera_id (integer),
-      frame (matrix of image),
-      main_line (tuple of points of crossing-line [x1, y1, x2, y2])
+      Camera_id (string),
+      Frame (matrix of image),
+      Points (list of points of crossing-line [x1, y1, x2, y2])
  )
 ```
 
 ##### Output:
 ```json
  {
-      "is_alert": "<provide_is_alert>",
-      "objects": "<provide_objects>"
+      "Is_alert": "<provide_is_alert>: boolean",
+      "Objects": "<provide_objects>: list of list"
+ }
+```
+
+
+##### 'Objects' struct:
+```json
+ {
+      "Id": "<provide_id_of_object>: integer",
+      "X1": "<provide_x1_of_object>: integer",
+      "Y1": "<provide_y1_of_object>: integer",
+      "X2": "<provide_x2_of_object>: integer",
+      "Y2": "<provide_y2_of_object>: integer",
+      "Class": "<provide_class_of_object>: integer",
  }
 ```
