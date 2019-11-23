@@ -9,7 +9,8 @@ services:
         # to leverage GPU from this container
         runtime: nvidia
         # run your file here
-        command: python test.py
+        command: python3 api.py
+        ports: [7000]
         volumes: 
           - "/docker_volumes/human_detection/service:/human_detection"
           - "/docker_volumes/human_detection/cuda:/usr/local/cuda"

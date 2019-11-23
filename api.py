@@ -35,15 +35,15 @@ def check_everthing_is_ok_2():
 def run_the_human_detector():
     try:
         data = json.loads(request.data)
-        camera_id = data.get("Camera_id")
-        task_id = data.get("Task_id")
+        camera_id = data.get("camera_id")
+        task_id = data.get("task_id")
 
-        frame = data.get("Frame")
-        points = data.get("Points")
-        frame_shape = data.get("Frame_shape")
+        frame = data.get("frame")
+        points = data.get("points")
+        frame_shape = data.get("frame_shape")
 
-        assert type(camera_id) == str, 'Type of variable `camera_id` not valid. Must be string.'
-        assert type(task_id) == str, 'Type of variable `task_id` not valid. Must be string.'
+        assert type(camera_id) == str or type(camera_id) == int, 'Type of variable `camera_id` not valid. Must be string or int.'
+        assert type(task_id) == str or type(task_id) == int, 'Type of variable `task_id` not valid. Must be string or int.'
         assert type(frame) == str, 'Type of variable `frame` not valid. Must be string.'
         assert type(points) == list and len(points) == 4, 'Variable `points` not valid. Must be list with 4 elem.'
         assert type(frame_shape) == list and len(frame_shape) == 3, 'Variable `frame_shape` not valid. Must be list with 3 elem.'
@@ -55,10 +55,10 @@ def run_the_human_detector():
         frame = frame.reshape(frame_shape)
 
         response_json = {
-            "Camera_id": camera_id,
-            "Task_id": task_id,
-            "Is_alert": False,
-            "Objects": []
+            "camera_id": camera_id,
+            "task_id": task_id,
+            "is_alert": False,
+            "objects": []
         }
 
         response_in_json = blackbox.receiveFrame(camera_id, frame, points)
@@ -72,3 +72,4 @@ def run_the_human_detector():
 
 if __name__ == "__main__":
     application.run(host=C.HOST, port=C.PORT, debug=True)
+    print(f"Running on http://{C.HOST}:{C.PORT}/ (Press CTRL+C to quit)")
