@@ -2,10 +2,10 @@ import time
 import json
 import numpy
 import base64
-import cv2
+# import cv2
 
 from flask import Flask, Response, request
-from view.black_box import BlackBox
+#from view.black_box import BlackBox
 
 from utils import constants as C
 from utils.app_log import get_logger
@@ -13,7 +13,7 @@ from utils.app_log import get_logger
 application = Flask(__name__)
 logger = get_logger("application")
 
-blackbox = BlackBox()
+#blackbox = BlackBox()
 
 def dump_json(passed_json):
     return json.dumps(passed_json, indent=4, sort_keys=True, default=str)
@@ -50,9 +50,9 @@ def run_the_human_detector():
 
         print(f"[APP] Received: camera_id: {camera_id} && task_id: {task_id}")
 
-        frame = numpy.frombuffer(base64.b64decode(frame), dtype=numpy.uint8)
-        frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
-        frame = frame.reshape(frame_shape)
+        # frame = numpy.frombuffer(base64.b64decode(frame), dtype=numpy.uint8)
+        # frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+        # frame = frame.reshape(frame_shape)
 
         response_json = {
             "camera_id": camera_id,
@@ -61,8 +61,8 @@ def run_the_human_detector():
             "objects": []
         }
 
-        response_in_json = blackbox.receiveFrame(camera_id, frame, points)
-        response_json.update(response_in_json)
+        #response_in_json = blackbox.receiveFrame(camera_id, frame, points)
+        #response_json.update(response_in_json)
 
         return Response(dump_json(response_json), status=C.STATUS_OK, mimetype='application/json')
 
@@ -71,5 +71,7 @@ def run_the_human_detector():
        return return_failed_response(ex)
 
 if __name__ == "__main__":
+    print("asd1")
     application.run(host=C.HOST, port=C.PORT, debug=True)
+    print("asd5")
     print(f"Running on http://{C.HOST}:{C.PORT}/ (Press CTRL+C to quit)")

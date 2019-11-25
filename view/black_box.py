@@ -36,17 +36,26 @@ class BlackBox:
         main_line = ((main_line[0], main_line[1]), (main_line[2], main_line[3]))
         
         # get ghosts from redis
-        objects =  self.redis_cli.get(camera_id)
+        objects = []
+        try:
+            objects = self.redis_cli.get(camera_id)
+        except Exception as ex:
+           # logger.error(f"[APP] Error has occured. Exception: {ex}")
+           print(f"[APP] Error has occured. Exception: {ex}")
+
         if objects:
             objects = json.loads(objects.decode('utf-8'))
-        else:
-            objects = []
         
         # analyse
         is_alert, found_objects = self.analyseFrame(frame, main_line, objects)
 
         # save objects as ghosts to redis
-        self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
+
+        try:
+            self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
+        except Exception as ex:
+           # logger.error(f"[APP] Error has occured. Exception: {ex}")
+           print(f"[APP] Error has occured. Exception: {ex}")
 
         # format bounding boxes only for objects without ghosts
         objects = []

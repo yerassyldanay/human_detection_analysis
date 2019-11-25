@@ -1,17 +1,9 @@
 version: '2.3'
-
 services:
-    human_detection:
-        # the docler container will restart, in case it fails
-        restart: on-failure
-        # uses Dockerfile in the WORKDIR
-        build: .
-        # to leverage GPU from this container
-        runtime: nvidia
-        # run your file here
-        command: python3 api.py
-        ports: [7000]
-        volumes: 
-          - "/docker_volumes/human_detection/service:/human_detection"
-          - "/docker_volumes/human_detection/cuda:/usr/local/cuda"
-
+  web:
+    build: .
+    runtime: nvidia
+    ports: 
+      - 5000:5000
+    volumes: 
+      - "/docker_volumes/human_detection/cuda:/usr/local/cuda"
