@@ -8,11 +8,9 @@ RUN apt-get update \
 
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP app.py
-ENV FLASK_RUN_HOST 0.0.0.0
+ENV FLASK_RUN_HOST 0.0.0.0:7000
 
 FROM tensorflow/tensorflow:latest-gpu
-
-EXPOSE 5000
 
 WORKDIR /code
 
@@ -20,8 +18,4 @@ RUN apt-get update && apt-get -y install python3-pip
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
-COPY . .
-
-RUN cat docker-compose.yml
-CMD ["flask", "run"]
-
+COPY . /code

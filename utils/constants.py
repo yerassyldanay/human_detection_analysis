@@ -1,11 +1,11 @@
 STATUS_OK = "200"
 STATUS_ERROR = "500"
 
-HOST = "localhost"
+HOST = "0.0.0.0"
 PORT = "7000"
 
-REDIS_HOST = "localhost"
-REDIS_PORT = 6379
+REDIS_HOST = "0.0.0.0"
+REDIS_PORT = 8097
 REDIS_DB = 0
 
 MODEL_PATH = './view/model/frozen_inference_graph.pb'

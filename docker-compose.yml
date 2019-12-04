@@ -3,7 +3,14 @@ services:
   web:
     build: .
     runtime: nvidia
+    command: python3 api.py
     ports: 
-      - 5000:5000
-    volumes: 
-      - "/docker_volumes/human_detection/cuda:/usr/local/cuda"
+      - 7000:7000
+
+  web2:
+    build: .
+    runtime: nvidia
+    command: python3 api.py
+    ports: 
+      - 7001:7000
+    
