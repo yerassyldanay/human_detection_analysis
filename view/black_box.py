@@ -18,7 +18,7 @@ def box_intersection(box1, box2):
     polygon1 = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
 
     (x3, y3, x4, y4) = box2
-    polygon2 = Polygon([(x3, y3), (x4, y3), (x4, y3), (x3, y4)])
+    polygon2 = Polygon([(x3, y3), (x4, y3), (x4, y4), (x3, y4)])
 
     return polygon2.intersection(polygon1).area
 
@@ -41,7 +41,10 @@ class BlackBox:
             objects = self.redis_cli.get(camera_id)
         except Exception as ex:
            # logger.error(f"[APP] Error has occured. Exception: {ex}")
-           print(f"[APP] Error has occured. Exception: {ex}")
+           print(f"[APP] 1. Error has occured. Exception: {ex}")
+
+        if objects == None:
+            objects = []
 
         if objects:
             objects = json.loads(objects.decode('utf-8'))
@@ -55,7 +58,7 @@ class BlackBox:
             self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
         except Exception as ex:
            # logger.error(f"[APP] Error has occured. Exception: {ex}")
-           print(f"[APP] Error has occured. Exception: {ex}")
+           print(f"[APP] 2. Error has occured. Exception: {ex}")
 
         # format bounding boxes only for objects without ghosts
         objects = []
