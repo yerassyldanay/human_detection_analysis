@@ -37,28 +37,28 @@ class BlackBox:
         
         # get ghosts from redis
         objects = []
-        try:
-            objects = self.redis_cli.get(camera_id)
-        except Exception as ex:
-           # logger.error(f"[APP] Error has occured. Exception: {ex}")
-           print(f"[APP] 1. Error has occured. Exception: {ex}")
+        # try:
+        #     objects = self.redis_cli.get(camera_id)
+        # except Exception as ex:
+        #    # logger.error(f"[APP] Error has occured. Exception: {ex}")
+        #    print(f"[APP] 1. Error has occured. Exception: {ex}")
 
-        if objects == None:
-            objects = []
+        # if objects == None:
+        #     objects = []
 
-        if objects:
-            objects = json.loads(objects.decode('utf-8'))
+        # if objects:
+        #     objects = json.loads(objects.decode('utf-8'))
         
         # analyse
         is_alert, found_objects = self.analyseFrame(frame, main_line, objects)
 
         # save objects as ghosts to redis
 
-        try:
-            self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
-        except Exception as ex:
-           # logger.error(f"[APP] Error has occured. Exception: {ex}")
-           print(f"[APP] 2. Error has occured. Exception: {ex}")
+        # try:
+        #     self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
+        # except Exception as ex:
+        #    # logger.error(f"[APP] Error has occured. Exception: {ex}")
+        #    print(f"[APP] 2. Error has occured. Exception: {ex}")
 
         # format bounding boxes only for objects without ghosts
         objects = []
@@ -91,7 +91,6 @@ class BlackBox:
         used = [0] * box_count
 
         # check for intersections of new boxes with ghosts from previous checks
-        print(objects)
         for obj in objects:
             maxx = (0, -1)
 
