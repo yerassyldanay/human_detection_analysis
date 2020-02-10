@@ -71,5 +71,5 @@ def run_the_human_detector():
        return return_failed_response(ex)
 
 if __name__ == "__main__":
-    application.run(host=C.HOST, port=C.PORT, debug=True)
+    application.run(host=C.HOST, port=C.PORT, debug=False)
     print(f"Running on http://{C.HOST}:{C.PORT}/ (Press CTRL+C to quit)")

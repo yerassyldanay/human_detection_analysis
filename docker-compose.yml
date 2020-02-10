@@ -6,11 +6,12 @@ services:
     command: python3 api.py
     ports: 
       - 7000:7000
+    mem_limit: 4gb
 
-  web2:
-    build: .
-    runtime: nvidia
-    command: python3 api.py
-    ports: 
-      - 7001:7000
+  # web2:
+  #   build: .
+  #   runtime: nvidia
+  #   command: python3 api.py
+  #   ports: 
+  #     - 7001:7000
     
