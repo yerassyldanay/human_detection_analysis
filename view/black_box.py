@@ -37,28 +37,29 @@ class BlackBox:
         
         # get ghosts from redis
         objects = []
-        # try:
-        #     objects = self.redis_cli.get(camera_id)
-        # except Exception as ex:
-        #    # logger.error(f"[APP] Error has occured. Exception: {ex}")
-        #    print(f"[APP] 1. Error has occured. Exception: {ex}")
+        try:
+            objects = self.redis_cli.get(camera_id)
+        except Exception as ex:
+           # logger.error(f"[APP] Error has occured. Exception: {ex}")
+           print(f"[APP] 1. Error has occured. Exception: {ex}")
 
-        # if objects == None:
-        #     objects = []
+        if objects == None:
+            objects = []
 
-        # if objects:
-        #     objects = json.loads(objects.decode('utf-8'))
+        if objects:
+            objects = json.loads(objects.decode('utf-8'))
         
         # analyse
-        is_alert, found_objects = self.analyseFrame(frame, main_line, objects)
+        is_alert, found_objects = self.analyseFrame(frame, main_line, objects, camera_id)
 
         # save objects as ghosts to redis
 
-        # try:
-        #     self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
-        # except Exception as ex:
-        #    # logger.error(f"[APP] Error has occured. Exception: {ex}")
-        #    print(f"[APP] 2. Error has occured. Exception: {ex}")
+        try:
+            self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
+            self.redis_cli.set(camera_id + '_last', json.dumps(found_objects))
+        except Exception as ex:
+           # logger.error(f"[APP] Error has occured. Exception: {ex}")
+           print(f"[APP] 2. Error has occured. Exception: {ex}")
 
         # format bounding boxes only for objects without ghosts
         objects = []
@@ -81,7 +82,7 @@ class BlackBox:
         return json_out
 
     # line-crossing and object tracking
-    def analyseFrame(self, frame, main_line, objects):        
+    def analyseFrame(self, frame, main_line, objects, camera_id):        
         curr_time = time.time()
         is_alert = False
         last_id = -1
@@ -91,6 +92,7 @@ class BlackBox:
         used = [0] * box_count
 
         # check for intersections of new boxes with ghosts from previous checks
+        # print(objects)
         for obj in objects:
             maxx = (0, -1)
 
@@ -117,7 +119,8 @@ class BlackBox:
                 last_id = max(last_id, obj['id'])
 
                 if not ghost['is_alerted'] and line_intersection(ghost['box'], main_line):
-                    is_alert = True
+                    if not self.exceptions(camera_id, boundbox):
+                        is_alert = True
 
             # save box as ghost
             else:
@@ -144,7 +147,8 @@ class BlackBox:
                 found_objects.append(obj)
 
                 if line_intersection(obj['box'], main_line):
-                    is_alert = True
+                    if not self.exceptions(camera_id, boundbox):
+                        is_alert = True
 
         # if on this frame was alert, all objects (without ghosts) are alerted
         if is_alert:
@@ -169,3 +173,29 @@ class BlackBox:
                 classes.append(raw_classes[i])
 
         return boxes, scores, classes, len(boxes)
+
+    def exceptions(self, camera_id, boundbox):
+        d = 5
+
+        (x1, y1, x2, y2) = boundbox
+
+        objects = []
+        try:
+            objects = self.redis_cli.get(camera_id + '_none')
+        except Exception as ex:
+           # logger.error(f"[APP] Error has occured. Exception: {ex}")
+           print(f"[APP] 1. Error has occured. Exception: {ex}")
+
+        # если редис пустой, он возвращает None
+        if objects == None:
+            return False
+
+        if objects:
+            objects = json.loads(objects.decode('utf-8'))
+
+        for obj in objects:
+            (o_x1, o_y1, o_x2, o_y2) = obj['box']
+            if x1 in range(o_x1 - d, o_x1 + d) and y1 in range(o_y1 - d, o_y1 + d) and x2 in range(o_x2 - d, o_x2 + d) and y2 in range(o_y2 - d, o_y2 + d):
+                return True
+
+        return False
