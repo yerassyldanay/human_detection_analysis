@@ -55,8 +55,11 @@ class BlackBox:
         # save objects as ghosts to redis
 
         try:
-            self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, json.dumps(found_objects))
-            self.redis_cli.set(camera_id + '_last', json.dumps(found_objects))
+            s = json.dumps(found_objects)
+            if s != '[]':
+                self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, s)
+            if is_alert == True:
+                self.redis_cli.set(camera_id + '_last', s)
         except Exception as ex:
            # logger.error(f"[APP] Error has occured. Exception: {ex}")
            print(f"[APP] 2. Error has occured. Exception: {ex}")
