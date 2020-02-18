@@ -56,16 +56,15 @@ class BlackBox:
 
 		# save objects as ghosts to redis
 
-		if C.OBJECT_TRACKING == True:
-			try:
-				s = json.dumps(found_objects)
-				if s != '[]':
-					self.redis_cli.setex(str(camera_id), C.TIME_TO_LIVE, s)
-				if is_alert == True:
-					self.redis_cli.setex(str(camera_id) + '_last', C.TIME_TO_LIVE_LONG, s)
-			except Exception as ex:
-				S# logger.error(f"[APP] Error has occured. Exception: {ex}")
-				print(f"[APP] 2. Error has occured. Exception: {ex}")
+		try:
+			s = json.dumps(found_objects)
+			if C.OBJECT_TRACKING == True and s != '[]':
+				self.redis_cli.setex(str(camera_id), C.TIME_TO_LIVE, s)
+			if is_alert == True:
+				self.redis_cli.setex(str(camera_id) + '_last', C.TIME_TO_LIVE_LONG, s)
+		except Exception as ex:
+			# logger.error(f"[APP] Error has occured. Exception: {ex}")
+			print(f"[APP] 2. Error has occured. Exception: {ex}")
 
 		# format bounding boxes only for objects without ghosts
 		objects = []
