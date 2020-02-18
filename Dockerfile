@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP app.py
 ENV FLASK_RUN_HOST 0.0.0.0:7000
 
-FROM tensorflow/tensorflow:latest-gpu
+FROM tensorflow/tensorflow:1.14.0-gpu
 
 WORKDIR /code
 

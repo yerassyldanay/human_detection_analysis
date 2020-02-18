@@ -1,4 +1,4 @@
-tensorflow-gpu
+tensorflow-gpu==1.14.0
 flask
 requests
 opencv-python==4.1.1.26

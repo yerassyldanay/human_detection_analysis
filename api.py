@@ -16,60 +16,60 @@ logger = get_logger("application")
 blackbox = BlackBox()
 
 def dump_json(passed_json):
-    return json.dumps(passed_json, indent=4, sort_keys=True, default=str)
+	return json.dumps(passed_json, indent=4, sort_keys=True, default=str)
 
 def return_failed_response(ex):
-    return Response(dump_json({"error": ex}), status=C.STATUS_ERROR, mimetype='application/json')
+	return Response(dump_json({"error": ex}), status=C.STATUS_ERROR, mimetype='application/json')
 
 @application.route("/", methods = ["GET", "POST"])
 def check_everthing_is_ok():
-    return Response(dump_json({"hello": "At this moment, everthing is working fine"}),
-                    status=C.STATUS_OK, mimetype='application/json')
+	return Response(dump_json({"hello": "At this moment, everthing is working fine"}),
+					status=C.STATUS_OK, mimetype='application/json')
 
 @application.route("/api/human_detection", methods = ["GET"])
 def check_everthing_is_ok_2():
-    return Response(dump_json({"error": "Make POST requests"}),
-                    status=C.STATUS_OK, mimetype='application/json')
+	return Response(dump_json({"error": "Make POST requests"}),
+					status=C.STATUS_OK, mimetype='application/json')
 
 @application.route("/api/human_detection", methods = ["POST"])
 def run_the_human_detector():
-    try:
-        data = json.loads(request.data)
-        camera_id = data.get("camera_id")
-        task_id = data.get("task_id")
+	try:
+		data = json.loads(request.data)
+		camera_id = data.get("camera_id")
+		task_id = data.get("task_id")
 
-        frame = data.get("frame")
-        points = data.get("points")
-        frame_shape = data.get("frame_shape")
+		frame = data.get("frame")
+		points = data.get("points")
+		frame_shape = data.get("frame_shape")
 
-        assert type(camera_id) == str or type(camera_id) == int, 'Type of variable `camera_id` not valid. Must be string or int.'
-        assert type(task_id) == str or type(task_id) == int, 'Type of variable `task_id` not valid. Must be string or int.'
-        assert type(frame) == str, 'Type of variable `frame` not valid. Must be string.'
-        assert type(points) == list and len(points) == 4, 'Variable `points` not valid. Must be list with 4 elem.'
-        assert type(frame_shape) == list and len(frame_shape) == 3, 'Variable `frame_shape` not valid. Must be list with 3 elem.'
+		assert type(camera_id) == str or type(camera_id) == int, 'Type of variable `camera_id` not valid. Must be string or int.'
+		assert type(task_id) == str or type(task_id) == int, 'Type of variable `task_id` not valid. Must be string or int.'
+		assert type(frame) == str, 'Type of variable `frame` not valid. Must be string.'
+		assert type(points) == list and len(points) == 4, 'Variable `points` not valid. Must be list with 4 elem.'
+		assert type(frame_shape) == list and len(frame_shape) == 3, 'Variable `frame_shape` not valid. Must be list with 3 elem.'
 
-        print(f"[APP] Received: camera_id: {camera_id} && task_id: {task_id}")
+		print(f"[APP] Received: camera_id: {camera_id} && task_id: {task_id}")
 
-        frame = numpy.frombuffer(base64.b64decode(frame), dtype=numpy.uint8)
-        frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
-        frame = frame.reshape(frame_shape)
+		frame = numpy.frombuffer(base64.b64decode(frame), dtype=numpy.uint8)
+		frame = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+		frame = frame.reshape(frame_shape)
 
-        response_json = {
-            "camera_id": camera_id,
-            "task_id": task_id,
-            "is_alert": False,
-            "objects": []
-        }
+		response_json = {
+			"camera_id": camera_id,
+			"task_id": task_id,
+			"is_alert": False,
+			"objects": []
+		}
 
-        response_in_json = blackbox.receiveFrame(camera_id, frame, points)
-        response_json.update(response_in_json)
+		response_in_json = blackbox.receiveFrame(camera_id, frame, points)
+		response_json.update(response_in_json)
 
-        return Response(dump_json(response_json), status=C.STATUS_OK, mimetype='application/json')
+		return Response(dump_json(response_json), status=C.STATUS_OK, mimetype='application/json')
 
-    except Exception as ex:
-       logger.error(f"[APP] Error has occured. Exception: {ex}")
-       return return_failed_response(ex)
+	except Exception as ex:
+		logger.error(f"[APP] Error has occured. Exception: {ex}")
+		return return_failed_response(ex)
 
 if __name__ == "__main__":
-    application.run(host=C.HOST, port=C.PORT, debug=False)
-    print(f"Running on http://{C.HOST}:{C.PORT}/ (Press CTRL+C to quit)")
+	application.run(host=C.HOST, port=C.PORT, debug=False)
+	print(f"Running on http://{C.HOST}:{C.PORT}/ (Press CTRL+C to quit)")

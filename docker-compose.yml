@@ -6,7 +6,7 @@ services:
     command: python3 api.py
     ports: 
       - 7000:7000
-    mem_limit: 4gb
+    mem_limit: 3gb
 
   # web2:
   #   build: .
@@ -14,4 +14,5 @@ services:
   #   command: python3 api.py
   #   ports: 
   #     - 7001:7000
+  #   mem_limit: 3gb
     

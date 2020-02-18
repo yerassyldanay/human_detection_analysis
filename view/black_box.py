@@ -6,199 +6,202 @@ import json
 import redis
 
 def line_intersection(box, main_line):
-    (x1, y1, x2, y2) = box
+	(x1, y1, x2, y2) = box
 
-    polygon = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
-    main_line = LineString(main_line)
-    
-    return main_line.intersects(polygon)
+	polygon = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
+	main_line = LineString(main_line)
+	
+	return main_line.intersects(polygon)
 
 def box_intersection(box1, box2):
-    (x1, y1, x2, y2) = box1
-    polygon1 = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
+	(x1, y1, x2, y2) = box1
+	polygon1 = Polygon([(x1, y1), (x2, y1), (x2, y2), (x1, y2)])
 
-    (x3, y3, x4, y4) = box2
-    polygon2 = Polygon([(x3, y3), (x4, y3), (x4, y4), (x3, y4)])
+	(x3, y3, x4, y4) = box2
+	polygon2 = Polygon([(x3, y3), (x4, y3), (x4, y4), (x3, y4)])
 
-    return polygon2.intersection(polygon1).area
+	return polygon2.intersection(polygon1).area
 
 class BlackBox:
 
-    def __init__(self):
-        self.odapi = DetectorAPI(path_to_ckpt = C.MODEL_PATH)
-        self.redis_cli = redis.StrictRedis(host = C.REDIS_HOST, port = C.REDIS_PORT, db = C.REDIS_DB)
-        self.object_threshold = C.OBJECT_THRESHOLD
-        self.object_classes = C.OBJECT_CLASSES
-        self.frames_to_live = C.FRAMES_TO_LIVE
-        self.alert_delay = C.ALERT_DELAY
+	def __init__(self):
+		self.odapi = DetectorAPI(path_to_ckpt = C.MODEL_PATH)
+		self.redis_cli = redis.StrictRedis(host = C.REDIS_HOST, port = C.REDIS_PORT, db = C.REDIS_DB)
+		self.object_threshold = C.OBJECT_THRESHOLD
+		self.object_classes = C.OBJECT_CLASSES
+		self.frames_to_live = C.FRAMES_TO_LIVE
+		self.alert_delay = C.ALERT_DELAY
 
-    def receiveFrame(self, camera_id, frame, main_line):
-        main_line = ((main_line[0], main_line[1]), (main_line[2], main_line[3]))
-        
-        # get ghosts from redis
-        objects = []
-        try:
-            objects = self.redis_cli.get(camera_id)
-        except Exception as ex:
-           # logger.error(f"[APP] Error has occured. Exception: {ex}")
-           print(f"[APP] 1. Error has occured. Exception: {ex}")
+	def receiveFrame(self, camera_id, frame, main_line):
+		main_line = ((main_line[0], main_line[1]), (main_line[2], main_line[3]))
+		
+		# get ghosts from redis
+		objects = []
 
-        if objects == None:
-            objects = []
+		if C.OBJECT_TRACKING == True:
+			try:
+				objects = self.redis_cli.get(str(camera_id))
+			except Exception as ex:
+				# logger.error(f"[APP] Error has occured. Exception: {ex}")
+				print(f"[APP] 1. Error has occured. Exception: {ex}")
 
-        if objects:
-            objects = json.loads(objects.decode('utf-8'))
-        
-        # analyse
-        is_alert, found_objects = self.analyseFrame(frame, main_line, objects, camera_id)
+			if objects == None:
+				objects = []
 
-        # save objects as ghosts to redis
+			if objects:
+				objects = json.loads(objects.decode('utf-8'))
+		
+		# analyse
+		is_alert, found_objects = self.analyseFrame(frame, main_line, objects, camera_id)
 
-        try:
-            s = json.dumps(found_objects)
-            if s != '[]':
-                self.redis_cli.setex(camera_id, C.TIME_TO_LIVE, s)
-            if is_alert == True:
-                self.redis_cli.set(camera_id + '_last', s)
-        except Exception as ex:
-           # logger.error(f"[APP] Error has occured. Exception: {ex}")
-           print(f"[APP] 2. Error has occured. Exception: {ex}")
+		# save objects as ghosts to redis
 
-        # format bounding boxes only for objects without ghosts
-        objects = []
-        for found_object in found_objects:
-            if found_object['frames_to_live'] == self.frames_to_live:
-                obj = {}
-                obj['id'] = found_object['id']
-                obj['x1'] = found_object['box'][0]
-                obj['y1'] = found_object['box'][1]
-                obj['x2'] = found_object['box'][2]
-                obj['y2'] = found_object['box'][3]
-                obj['class'] = found_object['class']
-                objects.append(obj)
+		if C.OBJECT_TRACKING == True:
+			try:
+				s = json.dumps(found_objects)
+				if s != '[]':
+					self.redis_cli.setex(str(camera_id), C.TIME_TO_LIVE, s)
+				if is_alert == True:
+					self.redis_cli.setex(str(camera_id) + '_last', C.TIME_TO_LIVE_LONG, s)
+			except Exception as ex:
+				S# logger.error(f"[APP] Error has occured. Exception: {ex}")
+				print(f"[APP] 2. Error has occured. Exception: {ex}")
 
-        # create json for request result
-        json_out = {}
-        json_out['is_alert'] = is_alert
-        json_out['objects'] = objects
+		# format bounding boxes only for objects without ghosts
+		objects = []
+		for found_object in found_objects:
+			if found_object['frames_to_live'] == self.frames_to_live:
+				obj = {}
+				obj['id'] = found_object['id']
+				obj['x1'] = found_object['box'][0]
+				obj['y1'] = found_object['box'][1]
+				obj['x2'] = found_object['box'][2]
+				obj['y2'] = found_object['box'][3]
+				obj['class'] = found_object['class']
+				objects.append(obj)
 
-        return json_out
+		# create json for request result
+		json_out = {}
+		json_out['is_alert'] = is_alert
+		json_out['objects'] = objects
 
-    # line-crossing and object tracking
-    def analyseFrame(self, frame, main_line, objects, camera_id):        
-        curr_time = time.time()
-        is_alert = False
-        last_id = -1
-        found_objects = []
+		return json_out
 
-        boxes, scores, classes, box_count = self.getData(frame)
-        used = [0] * box_count
+	# line-crossing and object tracking
+	def analyseFrame(self, frame, main_line, objects, camera_id):        
+		curr_time = time.time()
+		is_alert = False
+		last_id = -1
+		found_objects = []
 
-        # check for intersections of new boxes with ghosts from previous checks
-        # print(objects)
-        for obj in objects:
-            maxx = (0, -1)
+		boxes, scores, classes, box_count = self.getData(frame)
+		used = [0] * box_count
 
-            # find max intersection
-            for i in range(box_count):
-                if used[i] == 0 and obj['class'] == classes[i]:
-                    box = boxes[i]
-                    boundbox = [box[1], box[0], box[3], box[2]]
+		# check for intersections of new boxes with ghosts from previous checks
+		# print(objects)
+		for obj in objects:
+			maxx = (0, -1)
 
-                    area = box_intersection(obj['box'], boundbox)
-                    if area > maxx[0]:
-                        maxx = area, i
+			# find max intersection
+			for i in range(box_count):
+				if used[i] == 0 and obj['class'] == classes[i]:
+					box = boxes[i]
+					boundbox = [box[1], box[0], box[3], box[2]]
 
-            # ghost beloved to object
-            if maxx[1] >= 0:
-                box = boxes[maxx[1]]
-                boundbox = [box[1], box[0], box[3], box[2]]
-                ghost = obj
-                ghost['box'] = boundbox
-                ghost['frames_to_live'] = self.frames_to_live
-                found_objects.append(ghost)
+					area = box_intersection(obj['box'], boundbox)
+					if area > maxx[0]:
+						maxx = area, i
 
-                used[maxx[1]] = 1
-                last_id = max(last_id, obj['id'])
+			# ghost beloved to object
+			if maxx[1] >= 0:
+				box = boxes[maxx[1]]
+				boundbox = [box[1], box[0], box[3], box[2]]
+				ghost = obj
+				ghost['box'] = boundbox
+				ghost['frames_to_live'] = self.frames_to_live
+				found_objects.append(ghost)
 
-                if not ghost['is_alerted'] and line_intersection(ghost['box'], main_line):
-                    if not self.exceptions(camera_id, boundbox):
-                        is_alert = True
+				used[maxx[1]] = 1
+				last_id = max(last_id, obj['id'])
 
-            # save box as ghost
-            else:
-                if obj['frames_to_live'] > 0:
-                    ghost = obj
-                    ghost['frames_to_live'] -= 1
-                    found_objects.append(ghost)
+				if not ghost['is_alerted'] and line_intersection(ghost['box'], main_line):
+					if not self.exceptions(camera_id, boundbox):
+						is_alert = True
 
-        # check if there is new object found in frame
-        for i in range(box_count):
-            if used[i] == 0:
-                last_id += 1
-                box = boxes[i]
-                boundbox = [box[1], box[0], box[3], box[2]]
+			# save box as ghost
+			else:
+				if obj['frames_to_live'] > 0:
+					ghost = obj
+					ghost['frames_to_live'] -= 1
+					found_objects.append(ghost)
 
-                obj = {}
-                obj['id'] = last_id
-                obj['box'] = boundbox
-                obj['class'] = classes[i]
-                obj['score'] = scores[i]
-                obj['first_time'] = curr_time
-                obj['is_alerted'] = False
-                obj['frames_to_live'] = self.frames_to_live
-                found_objects.append(obj)
+		# check if there is new object found in frame
+		for i in range(box_count):
+			if used[i] == 0:
+				last_id += 1
+				box = boxes[i]
+				boundbox = [box[1], box[0], box[3], box[2]]
 
-                if line_intersection(obj['box'], main_line):
-                    if not self.exceptions(camera_id, boundbox):
-                        is_alert = True
+				obj = {}
+				obj['id'] = last_id
+				obj['box'] = boundbox
+				obj['class'] = classes[i]
+				obj['score'] = scores[i]
+				obj['first_time'] = curr_time
+				obj['is_alerted'] = False
+				obj['frames_to_live'] = self.frames_to_live
+				found_objects.append(obj)
 
-        # if on this frame was alert, all objects (without ghosts) are alerted
-        if is_alert:
-            for i in range(len(found_objects)):
-                if found_objects[i]['frames_to_live'] == self.frames_to_live:
-                    found_objects[i]['is_alerted'] = is_alert
+				if line_intersection(obj['box'], main_line):
+					if not self.exceptions(camera_id, boundbox):
+						is_alert = True
 
-        return is_alert, found_objects
+		# if on this frame was alert, all objects (without ghosts) are alerted
+		if is_alert:
+			for i in range(len(found_objects)):
+				if found_objects[i]['frames_to_live'] == self.frames_to_live:
+					found_objects[i]['is_alerted'] = is_alert
 
-    # check frame at faster
-    def getData(self, frame):
-        boxes = []
-        scores = []
-        classes = []
-        raw_boxes, raw_scores, raw_classes, num = self.odapi.processFrame(frame)
+		return is_alert, found_objects
 
-        # choice for boxes with parameters(class, threshold)
-        for i in range(len(raw_boxes)):
-            if raw_classes[i] in self.object_classes and raw_scores[i] > self.object_threshold:
-                boxes.append(raw_boxes[i])
-                scores.append(raw_scores[i])
-                classes.append(raw_classes[i])
+	# check frame at faster
+	def getData(self, frame):
+		boxes = []
+		scores = []
+		classes = []
+		raw_boxes, raw_scores, raw_classes, num = self.odapi.processFrame(frame)
 
-        return boxes, scores, classes, len(boxes)
+		# choice for boxes with parameters(class, threshold)
+		for i in range(len(raw_boxes)):
+			if raw_classes[i] in self.object_classes and raw_scores[i] > self.object_threshold:
+				boxes.append(raw_boxes[i])
+				scores.append(raw_scores[i])
+				classes.append(raw_classes[i])
 
-    def exceptions(self, camera_id, boundbox):
-        d = 5
+		return boxes, scores, classes, len(boxes)
 
-        (x1, y1, x2, y2) = boundbox
+	def exceptions(self, camera_id, boundbox):
+		d = 5
 
-        objects = []
-        try:
-            objects = self.redis_cli.get(camera_id + '_none')
-        except Exception as ex:
-           # logger.error(f"[APP] Error has occured. Exception: {ex}")
-           print(f"[APP] 1. Error has occured. Exception: {ex}")
+		(x1, y1, x2, y2) = boundbox
 
-        # если редис пустой, он возвращает None
-        if objects == None:
-            return False
+		objects = []
+		try:
+			objects = self.redis_cli.get(camera_id + '_none')
+		except Exception as ex:
+		   # logger.error(f"[APP] Error has occured. Exception: {ex}")
+		   print(f"[APP] 1. Error has occured. Exception: {ex}")
 
-        if objects:
-            objects = json.loads(objects.decode('utf-8'))
+		# если редис пустой, он возвращает None
+		if objects == None:
+			return False
 
-        for obj in objects:
-            (o_x1, o_y1, o_x2, o_y2) = obj['box']
-            if x1 in range(o_x1 - d, o_x1 + d) and y1 in range(o_y1 - d, o_y1 + d) and x2 in range(o_x2 - d, o_x2 + d) and y2 in range(o_y2 - d, o_y2 + d):
-                return True
+		if objects:
+			objects = json.loads(objects.decode('utf-8'))
 
-        return False
+		for obj in objects:
+			(o_x1, o_y1, o_x2, o_y2) = obj['box']
+			if x1 in range(int(o_x1) - d, int(o_x1) + d) and y1 in range(int(o_y1) - d, int(o_y1) + d) and x2 in range(int(o_x2) - d, int(o_x2) + d) and y2 in range(int(o_y2) - d, int(o_y2) + d):
+				return True
+
+		return False
