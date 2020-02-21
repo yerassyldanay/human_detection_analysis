@@ -40,6 +40,7 @@ class BlackBox:
 
 		if C.OBJECT_TRACKING == True:
 			try:
+				self.redis_cli = redis.StrictRedis(host = C.REDIS_HOST, port = C.REDIS_PORT, db = C.REDIS_DB)
 				objects = self.redis_cli.get(str(camera_id))
 			except Exception as ex:
 				# logger.error(f"[APP] Error has occured. Exception: {ex}")
@@ -57,6 +58,7 @@ class BlackBox:
 		# save objects as ghosts to redis
 
 		try:
+			self.redis_cli = redis.StrictRedis(host = C.REDIS_HOST, port = C.REDIS_PORT, db = C.REDIS_DB)
 			s = json.dumps(found_objects)
 			if C.OBJECT_TRACKING == True and s != '[]':
 				self.redis_cli.setex(str(camera_id), C.TIME_TO_LIVE, s)
@@ -180,12 +182,13 @@ class BlackBox:
 		return boxes, scores, classes, len(boxes)
 
 	def exceptions(self, camera_id, boundbox):
-		d = 5
+		d = 10
 
 		(x1, y1, x2, y2) = boundbox
 
 		objects = []
 		try:
+			self.redis_cli = redis.StrictRedis(host = C.REDIS_HOST, port = C.REDIS_PORT, db = C.REDIS_DB)
 			objects = self.redis_cli.get(camera_id + '_none')
 		except Exception as ex:
 		   # logger.error(f"[APP] Error has occured. Exception: {ex}")
