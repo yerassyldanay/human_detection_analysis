@@ -95,4 +95,19 @@ def photo_arrived(message):
 		markup.add(buttonYes, buttonNo)
 		bot.send_message(reply_to_message_id=message.message_id,chat_id=message.chat.id, text=message.caption + ', except it?', reply_markup=markup)
 
+@bot.message_handler(commands=['except', 'ex'])
+def text_arrived(message):
+    if message.reply_to_message != None:
+        camera_id = message.reply_to_message.caption
+        if camera_id != None and is_mine(camera_id):
+            markup = telebot.types.InlineKeyboardMarkup(row_width=5)
+            button1 = telebot.types.InlineKeyboardButton(text='10m', callback_data='_1_'+camera_id)
+            button2 = telebot.types.InlineKeyboardButton(text='30m', callback_data='_2_'+camera_id)
+            button3 = telebot.types.InlineKeyboardButton(text='1h', callback_data='_3_'+camera_id)
+            button4 = telebot.types.InlineKeyboardButton(text='6h', callback_data='_4_'+camera_id)
+            button5 = telebot.types.InlineKeyboardButton(text='9h', callback_data='_5_'+camera_id)
+            markup.add(button1, button2)
+            markup.add(button3, button4, button5)
+            bot.send_message(reply_to_message_id=message.reply_to_message.message_id,chat_id=message.chat.id, text='ID: ' + camera_id + ', choose time', reply_markup=markup)
+
 bot.polling()

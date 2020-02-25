@@ -189,7 +189,7 @@ class BlackBox:
 		objects = []
 		try:
 			self.redis_cli = redis.StrictRedis(host = C.REDIS_HOST, port = C.REDIS_PORT, db = C.REDIS_DB)
-			objects = self.redis_cli.get(camera_id + '_none')
+			objects = self.redis_cli.get(str(camera_id) + '_none')
 		except Exception as ex:
 		   # logger.error(f"[APP] Error has occured. Exception: {ex}")
 		   print(f"[APP] 1. Error has occured. Exception: {ex}")
