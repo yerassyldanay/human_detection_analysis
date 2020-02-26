@@ -63,7 +63,7 @@ def send_text(message):
 			ttl = int(arr[2]) * 60 + int(arr[3])
 		if ttl != 0 and except_it(arr[1], ttl):
 			bot.send_message(message.chat.id, "Done")
-	elif message.text[0] == 'e':
+	elif message.text[0:2] == 'ex' or message.text[0:2] == 'Ex':
 		arr = message.text.split()
 		camera_id = -1
 		if len(arr) == 2:
@@ -98,7 +98,7 @@ def query_handler(call):
 			ttl = times[int(call.data[1]) - 1]
 			camera_id = call.data[3:]
 			if except_it(camera_id, ttl):
-				bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Done")
+				bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Done for " + ttl + " minute")
 	else:
 		bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Ok")
 
